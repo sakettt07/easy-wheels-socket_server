@@ -58,9 +58,13 @@ const userSchema = new mongoose.Schema({
     location: {
         type: {
             type: String,
-            enum: ["Point"]
+            enum: ["Point"],
+            default: "Point"
         },
-        coordinates: [Number]
+        coordinates: {
+            type: [Number],
+            default: [0, 0]
+        }
     },
     isOnline: {
         type: Boolean,

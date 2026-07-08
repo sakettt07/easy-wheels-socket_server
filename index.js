@@ -6,7 +6,7 @@ import { Server } from "socket.io";
 import User from "./models/user.model.js";
 dotenv.config()
 
-const port = process.env.port || 5000
+const port = process.env.PORT || 5000
 const mongoUrl = process.env.MONGODB_URI
 
 
@@ -29,20 +29,58 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-    console.log(socket.id)
+    console.log('[Socket] User connected:', socket.id)
+
     socket.on("identity", async (userId) => {
-        socket.userId = userId
-        await User.findByIdAndUpdate(userId, {
-            socketId: socket.id,
-            isOnline: true
-        })
+        try {
+            socket.userId = userId
+            const updatedUser = await User.findByIdAndUpdate(
+                userId,
+                {
+                    socketId: socket.id,
+                    isOnline: true
+                },
+                { new: true }
+            )
+        } catch (error) {
+            console.error('[Socket] Error setting identity:', error.message)
+        }
     })
+
+    socket.on("update-location", async ({ userId, latitude, longitude }) => {
+        try {
+            console.log('[Socket] Location update received:', { userId, latitude, longitude })
+
+            const updatedUser = await User.findByIdAndUpdate(
+                userId,
+                {
+                    $set: {
+                        "location.type": "Point",
+                        "location.coordinates": [longitude, latitude]
+                    }
+                },
+                { new: true }
+            )
+        } catch (error) {
+            console.error('[Socket] Error updating location:', error.message)
+        }
+    })
+
     socket.on("disconnect", async () => {
-        if (!socket.userId) return
-        await User.findByIdAndUpdate(userId, {
-            socketId: null,
-            isOnline: false
-        })
+        try {
+            if (!socket.userId) return
+
+            const updatedUser = await User.findByIdAndUpdate(
+                socket.userId,
+                {
+                    socketId: null,
+                    isOnline: false
+                },
+                { new: true }
+            )
+        } catch (error) {
+            console.error('[Socket] Error on disconnect:', error.message)
+        }
     })
 })
 
