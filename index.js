@@ -19,6 +19,7 @@ const connectDb = async (params) => {
     }
 }
 const app = express()
+app.use(express.json());
 
 const server = http.createServer(app);
 
@@ -27,6 +28,28 @@ const io = new Server(server, {
         origin: process.env.NEXT_BASE_URL
     }
 });
+
+app.post("/emit", async (req, res) => {
+    const { event, to, data } = req.body;
+    console.log("[Server] /emit:", { event, to, data })
+    try {
+        const user = await User.findById(to);
+        console.log("[Server] Found user:", user)
+        if (user?.socketId) {
+            io.to(user.socketId).emit(event, data);
+            console.log(`[Server] Emitted "${event}" to user ${to} (socket: ${user.socketId})`)
+        } else {
+            console.log(`[Server] User ${to} not found or offline (no socketId)`)
+        }
+        return res.status(200).json({
+            message: "Event emitted"
+        })
+    } catch (error) {
+        return res.status(500).json({
+            message: "Internal server error"
+        })
+    }
+})
 
 io.on("connection", (socket) => {
     console.log('[Socket] User connected:', socket.id)
