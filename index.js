@@ -88,6 +88,10 @@ io.on("connection", (socket) => {
             console.error('[Socket] Error updating location:', error.message)
         }
     })
+    socket.on("join-ride", (bookingId) => {
+        console.log("[Socket] User joined ride:", bookingId, socket.id)
+        socket.join(`ride-${bookingId}`);
+    })
 
     socket.on("disconnect", async () => {
         try {
