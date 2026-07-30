@@ -92,7 +92,21 @@ io.on("connection", (socket) => {
         console.log("[Socket] User joined ride:", bookingId, socket.id)
         socket.join(`ride-${bookingId}`);
     })
-
+    socket.on("rider-location-update", ({ bookingId, latitude, longitude }) => {
+        console.log("[Socket] Rider location update:", bookingId, latitude, longitude)
+        io.to(`ride-${bookingId}`).emit("rider-location", {
+            latitude,
+            longitude
+        })
+    })
+    socket.on("chat-message", ({ bookingId, senderRole, message }) => {
+        console.log("[Socket] Chat message:", bookingId, senderRole, message)
+        socket.broadcast.to(`ride-${bookingId}`).emit("chat-message", {
+            bookingId,
+            senderRole,
+            message
+        })
+    })
     socket.on("disconnect", async () => {
         try {
             if (!socket.userId) return
