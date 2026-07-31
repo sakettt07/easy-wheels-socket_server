@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import http from "http";
 import { Server } from "socket.io";
 import User from "./models/user.model.js";
+import { logger } from "./logger.js";
 dotenv.config()
 
 const port = process.env.PORT || 5000
@@ -13,9 +14,9 @@ const mongoUrl = process.env.MONGODB_URI
 const connectDb = async (params) => {
     try {
         await mongoose.connect(mongoUrl);
-        console.log("db connected");
+        logger.info("db connected");
     } catch (error) {
-        console.log("db error")
+        logger.error("db error")
     }
 }
 const app = express()
@@ -31,15 +32,15 @@ const io = new Server(server, {
 
 app.post("/emit", async (req, res) => {
     const { event, to, data } = req.body;
-    console.log("[Server] /emit:", { event, to, data })
+    logger.info({ event, to, data }, "[Server] /emit:");
     try {
         const user = await User.findById(to);
-        console.log("[Server] Found user:", user)
+        logger.info({ user }, "[Server] Found user:");
         if (user?.socketId) {
             io.to(user.socketId).emit(event, data);
-            console.log(`[Server] Emitted "${event}" to user ${to} (socket: ${user.socketId})`)
+            logger.info(`[Server] Emitted "${event}" to user ${to} (socket: ${user.socketId})`);
         } else {
-            console.log(`[Server] User ${to} not found or offline (no socketId)`)
+            logger.info(`[Server] User ${to} not found or offline (no socketId)`);
         }
         return res.status(200).json({
             message: "Event emitted"
@@ -52,7 +53,10 @@ app.post("/emit", async (req, res) => {
 })
 
 io.on("connection", (socket) => {
-    console.log('[Socket] User connected:', socket.id)
+    logger.info({ socketId: socket.id }, '[Socket] User connected:');
+
+    /*The below socket event is made and got trigger when the user get logged in then its current location will gets fetched and 
+    and its socket id will gets stored in the database and will be online. (Called under GeoUpdater then entry page under useeffect) */
 
     socket.on("identity", async (userId) => {
         try {
@@ -66,13 +70,15 @@ io.on("connection", (socket) => {
                 { new: true }
             )
         } catch (error) {
-            console.error('[Socket] Error setting identity:', error.message)
+            logger.error({ error: error.message }, '[Socket] Error setting identity:');
         }
     })
+    /* The below socket event will store the current location of everyone using the platform in the database.
+    */
 
     socket.on("update-location", async ({ userId, latitude, longitude }) => {
         try {
-            console.log('[Socket] Location update received:', { userId, latitude, longitude })
+            logger.info({ userId, latitude, longitude }, '[Socket] Location update received:');
 
             const updatedUser = await User.findByIdAndUpdate(
                 userId,
@@ -85,33 +91,37 @@ io.on("connection", (socket) => {
                 { new: true }
             )
         } catch (error) {
-            console.error('[Socket] Error updating location:', error.message)
+            logger.error({ error: error.message }, '[Socket] Error updating location:');
         }
     })
+
+    /* The below socket event will create a room for the rider and user to communicate with each other  */
     socket.on("join-ride", (bookingId) => {
-        console.log("[Socket] User joined ride:", bookingId, socket.id)
+        logger.info({ bookingId, socketId: socket.id }, "[Socket] User joined ride:");
         socket.join(`ride-${bookingId}`);
     })
     socket.on("rider-location-update", ({ bookingId, latitude, longitude }) => {
-        console.log("[Socket] Rider location update:", bookingId, latitude, longitude)
+        logger.info({ bookingId, latitude, longitude }, "[Socket] Rider location update:");
         io.to(`ride-${bookingId}`).emit("rider-location", {
             latitude,
             longitude
         })
     })
+    /* The below event is made to send the message between the rider and user in real time.  */
     socket.on("chat-message", ({ bookingId, senderRole, message }) => {
-        console.log("[Socket] Chat message:", bookingId, senderRole, message)
+        logger.info({ bookingId, senderRole, message }, "[Socket] Chat message:");
         socket.broadcast.to(`ride-${bookingId}`).emit("chat-message", {
             bookingId,
             senderRole,
             message
         })
     })
+    /* The below event is made to make the user offline when he get logged out.  */
     socket.on("disconnect", async () => {
         try {
             if (!socket.userId) return
 
-            const updatedUser = await User.findByIdAndUpdate(
+            await User.findByIdAndUpdate(
                 socket.userId,
                 {
                     socketId: null,
@@ -120,12 +130,12 @@ io.on("connection", (socket) => {
                 { new: true }
             )
         } catch (error) {
-            console.error('[Socket] Error on disconnect:', error.message)
+            logger.error({ error: error.message }, '[Socket] Error on disconnect:');
         }
     })
 })
 
 server.listen(port, () => {
-    console.log("Server is working crazyyy")
+    logger.info("Server is working crazyyy");
     connectDb();
 })
