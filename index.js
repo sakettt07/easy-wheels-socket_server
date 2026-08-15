@@ -3,8 +3,10 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import http from "http";
 import { Server } from "socket.io";
+import cron from "node-cron";
 import User from "./models/user.model.js";
 import { logger } from "./logger.js";
+import axios from "axios";
 dotenv.config()
 
 const port = process.env.PORT || 5000
@@ -134,6 +136,19 @@ io.on("connection", (socket) => {
         }
     })
 })
+
+// Schedule daily automation to expire active rides at 23:59
+// TESTING: Changed to run every 5 minutes (*/5 * * * *)
+cron.schedule("*/5 * * * *", async () => {
+    try {
+        logger.info("[Cron] Running daily active rides expiration job...");
+        const response = await axios.post(`${process.env.NEXT_BASE_URL || 'http://localhost:3000'}/api/cron/expire-rides`);
+        const data = await response.data;
+        logger.info("[Cron] Expire rides job completed:");
+    } catch (error) {
+        logger.error({ error: error.message }, "[Cron] Failed to run expire rides job:");
+    }
+});
 
 server.listen(port, () => {
     logger.info("Server is working crazyyy");
