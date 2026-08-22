@@ -37,7 +37,7 @@ app.post("/emit", async (req, res) => {
     logger.info({ event, to, data }, "[Server] /emit:");
     try {
         const user = await User.findById(to);
-        logger.info({ user }, "[Server] Found user:");
+        logger.info("[Server] Found user:");
         if (user?.socketId) {
             io.to(user.socketId).emit(event, data);
             logger.info(`[Server] Emitted "${event}" to user ${to} (socket: ${user.socketId})`);
@@ -139,7 +139,7 @@ io.on("connection", (socket) => {
 
 // Schedule daily automation to expire active rides at 23:59
 // TESTING: Changed to run every 5 minutes (*/5 * * * *)
-cron.schedule("*/5 * * * *", async () => {
+cron.schedule("*/60 * * * *", async () => {
     try {
         logger.info("[Cron] Running daily active rides expiration job...");
         const response = await axios.post(`${process.env.NEXT_BASE_URL || 'http://localhost:3000'}/api/cron/expire-rides`);
