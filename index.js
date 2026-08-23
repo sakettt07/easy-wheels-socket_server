@@ -80,7 +80,7 @@ io.on("connection", (socket) => {
 
     socket.on("update-location", async ({ userId, latitude, longitude }) => {
         try {
-            logger.info({ userId, latitude, longitude }, '[Socket] Location update received:');
+            logger.info('[Socket] Location update received:');
 
             const updatedUser = await User.findByIdAndUpdate(
                 userId,
@@ -99,11 +99,11 @@ io.on("connection", (socket) => {
 
     /* The below socket event will create a room for the rider and user to communicate with each other  */
     socket.on("join-ride", (bookingId) => {
-        logger.info({ bookingId, socketId: socket.id }, "[Socket] User joined ride:");
+        logger.info("[Socket] User joined ride:");
         socket.join(`ride-${bookingId}`);
     })
     socket.on("rider-location-update", ({ bookingId, latitude, longitude }) => {
-        logger.info({ bookingId, latitude, longitude }, "[Socket] Rider location update:");
+        logger.info("[Socket] Rider location update:");
         io.to(`ride-${bookingId}`).emit("rider-location", {
             latitude,
             longitude
@@ -111,7 +111,7 @@ io.on("connection", (socket) => {
     })
     /* The below event is made to send the message between the rider and user in real time.  */
     socket.on("chat-message", ({ bookingId, senderRole, message }) => {
-        logger.info({ bookingId, senderRole, message }, "[Socket] Chat message:");
+        logger.info("[Socket] Chat message:");
         socket.broadcast.to(`ride-${bookingId}`).emit("chat-message", {
             bookingId,
             senderRole,
@@ -136,9 +136,6 @@ io.on("connection", (socket) => {
         }
     })
 })
-
-// Schedule daily automation to expire active rides at 23:59
-// TESTING: Changed to run every 5 minutes (*/5 * * * *)
 cron.schedule("*/60 * * * *", async () => {
     try {
         logger.info("[Cron] Running daily active rides expiration job...");
